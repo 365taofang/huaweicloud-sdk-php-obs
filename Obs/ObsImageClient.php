@@ -17,6 +17,7 @@
 
 namespace Obs;
 
+use Obs\Internal\Signature\DefaultSignature;
 use Obs\Log\ObsLog;
 use Obs\Internal\Common\SdkCurlFactory;
 use Obs\Internal\Common\SdkStreamHandler;
@@ -43,7 +44,7 @@ define('EMERGENCY', Logger::EMERGENCY);
 
 /**
  * @method Model createPostSignature(array $args = []);
- * @method Model createSignedUrl(array $args = []);
+// * @method Model createSignedUrl(array $args = []);
  * @method Model createBucket(array $args = []);
  * @method Model listBuckets();
  * @method Model deleteBucket(array $args = []);
@@ -420,6 +421,130 @@ class ObsImageClient
         }
 
         return $handler;
+    }
+
+    public function createSignedUrl(array $args=[])
+    {
+        if (strcasecmp($this -> signature, 'v4') === 0) {
+            return $this -> createV4SignedUrl($args);
+        }
+        return $this->createCommonSignedUrl($this->signature,$args);
+    }
+
+    private function createCommonSignedUrl(string $signature,array $args=[]) {
+        if(!isset($args['Method'])){
+            $obsException = new ObsException('Method param must be specified, allowed values: GET | PUT | HEAD | POST | DELETE | OPTIONS');
+            $obsException-> setExceptionType('client');
+            throw $obsException;
+        }
+        $method = strval($args['Method']);
+        $bucketName = isset($args['Bucket'])? strval($args['Bucket']): null;
+        $objectKey =  isset($args['Key'])? strval($args['Key']): null;
+        $specialParam = isset($args['SpecialParam'])? strval($args['SpecialParam']): null;
+        $expires = isset($args['Expires']) && is_numeric($args['Expires']) ? intval($args['Expires']): 300;
+        $objectKey = $this->genKey($objectKey);
+
+        $headers = [];
+        if(isset($args['Headers']) && is_array($args['Headers']) ){
+            foreach ($args['Headers'] as $key => $val){
+                if(is_string($key) && $key !== ''){
+                    $headers[$key] = $val;
+                }
+            }
+        }
+
+
+
+        $queryParams = [];
+        if(isset($args['QueryParams']) && is_array($args['QueryParams']) ){
+            foreach ($args['QueryParams'] as $key => $val){
+                if(is_string($key) && $key !== ''){
+                    $queryParams[$key] = $val;
+                }
+            }
+        }
+
+        $constants = Constants::selectConstants($signature);
+        if($this->securityToken && !isset($queryParams[$constants::SECURITY_TOKEN_HEAD])){
+            $queryParams[$constants::SECURITY_TOKEN_HEAD] = $this->securityToken;
+        }
+
+        $sign = new DefaultSignature($this->ak, $this->sk, $this->pathStyle, $this->endpoint, $method, $this->signature, $this->securityToken, $this->isCname);
+
+        $url = parse_url($this->endpoint);
+        $host = $url['host'];
+
+        $result = '';
+
+        if($bucketName){
+            if($this-> pathStyle){
+                $result = '/' . $bucketName;
+            }else{
+                $host = $this->isCname ? $host : $bucketName . '.' . $host;
+            }
+        }
+
+        $headers['Host'] = $this->custom_domain ?? $host;
+
+        if($objectKey){
+            $objectKey = $sign ->urlencodeWithSafe($objectKey);
+            $result .= '/' . $objectKey;
+        }
+
+        $result .= '?';
+
+        if($specialParam){
+            $queryParams[$specialParam] = '';
+        }
+
+        $queryParams[$constants::TEMPURL_AK_HEAD] = $this->ak;
+
+
+        if(!is_numeric($expires) || $expires < 0){
+            $expires = 300;
+        }
+        $expires = intval($expires) + intval(microtime(true));
+
+        $queryParams['Expires'] = strval($expires);
+
+        $_queryParams = [];
+
+        foreach ($queryParams as $key => $val){
+            $key = $sign -> urlencodeWithSafe($key);
+            $val = $sign -> urlencodeWithSafe($val);
+            $_queryParams[$key] = $val;
+            $result .= $key;
+            if($val){
+                $result .= '=' . $val;
+            }
+            $result .= '&';
+        }
+
+        $canonicalstring = $sign ->makeCanonicalstring($method, $headers, $_queryParams, $bucketName, $objectKey, $expires);
+        $signatureContent = base64_encode(hash_hmac('sha1', $canonicalstring, $this->sk, true));
+
+        $result .= 'Signature=' . $sign->urlencodeWithSafe($signatureContent);
+
+        $model = new Model();
+        $model['ActualSignedRequestHeaders'] = $headers;
+        $model['SignedUrl'] = $url['scheme'] . '://' . ($this->custom_domain ?? $host) . ':' . (isset($url['port']) ? $url['port'] : (strtolower($url['scheme']) === 'https' ? '443' : '80')) . $result;
+        return $model;
+    }
+
+    public function genKey(&$key)
+    {
+        if (empty($this->project_name)) {
+            throw new \RuntimeException('project_name 参数有误');
+        }
+        $extension = explode('.', $key);
+        $ext = end($extension);
+        $date_ym = date('Y-m');
+        $date_ymd = date('Ymd');
+        $filePath = empty($this->project_sub_name) ? $this->project_name : $this->project_name . '/' . $this->project_sub_name;
+        $filePath .= "/{$date_ym}/{$date_ymd}_";
+        $hash_data = $this->project_name . $key . time() . mt_rand(111111, 999999);
+        $filePath .= hash('sha256', $hash_data) . '.' . $ext;
+        return $filePath;
     }
 
     /************************************************ 改造内容 *******************************************************/
