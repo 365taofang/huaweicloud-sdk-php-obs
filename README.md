@@ -1,25 +1,19 @@
-Version 3.22.601
+Version 3.23.501
+基于华为3.23.5版本，增加自定义ObsImageClient
 
-新特性： 基于华为Version 3.22.6，增加ObsImageClient。 
+Version 3.23.5
 
-使用方法
-````
-$obs = new Obs\ObsImageClient([
-    'key' => '*** Provide your Access Key ***',
-    'secret' => '*** Provide your Secret Key ***',
-    'endpoint' => 'https://your-endpoint',
-    'custom_domain' => 'img.house365.com',//非必填。需要替换的域名
-    'project_name'=>'comment_sysytem',//必填。文件路径1级目录
-    'project_sub_name'=>'asdasdd',//非必填。文件路径2级目录
-]);
+新特性：
+1. 新增自定义域名相关接口；
+2. 新增上传回调参数；
 
-$resp = $obs->putObject([
-    'Bucket' => 'bucketname',
-    'Key' => 'objectname',//必填。文件名称，如：123.jpg
-    'Body' => '********',
-]);
-````
+资料&demo:
+
+修复问题：
+1. 优化部分代码；
+
 ----
+
 Version 3.22.6
 
 新特性：
