@@ -29,15 +29,15 @@ use GuzzleHttp\Handler\CurlMultiHandler;
 use GuzzleHttp\Handler\Proxy;
 use GuzzleHttp\Promise\Promise;
 
-define('DEBUG', Logger::DEBUG);
-define('INFO', Logger::INFO);
-define('NOTICE', Logger::NOTICE);
-define('WARNING', Logger::WARNING);
-define('WARN', Logger::WARNING);
-define('ERROR', Logger::ERROR);
-define('CRITICAL', Logger::CRITICAL);
-define('ALERT', Logger::ALERT);
-define('EMERGENCY', Logger::EMERGENCY);
+defined('DEBUG') || define('DEBUG', Logger::DEBUG);
+defined('INFO') || define('INFO', Logger::INFO);
+defined('NOTICE') || define('NOTICE', Logger::NOTICE);
+defined('WARNING') || define('WARNING', Logger::WARNING);
+defined('WARN') || define('WARN', Logger::WARNING);
+defined('ERROR') || define('ERROR', Logger::ERROR);
+defined('CRITICAL') || define('CRITICAL', Logger::CRITICAL);
+defined('ALERT') || define('ALERT', Logger::ALERT);
+defined('EMERGENCY') || define('EMERGENCY', Logger::EMERGENCY);
 
 /**
  * @method Model createPostSignature(array $args=[]);
